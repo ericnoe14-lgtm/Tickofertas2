@@ -1,0 +1,478 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TICKOFERTAS PRO</title>
+
+<style>
+body{
+margin:0;
+font-family:Arial,sans-serif;
+background:#f5f5f5;
+color:#222;
+}
+header{
+background:#111827;
+color:white;
+padding:18px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+.logo{
+font-size:28px;
+font-weight:bold;
+}
+.logo span{
+color:#ef4444;
+}
+.container{
+max-width:1200px;
+margin:auto;
+padding:20px;
+}
+.card{
+background:white;
+padding:20px;
+border-radius:14px;
+box-shadow:0 2px 10px rgba(0,0,0,.08);
+margin-bottom:20px;
+}
+.grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:15px;
+}
+input,select,button{
+width:100%;
+padding:12px;
+border-radius:10px;
+border:1px solid #ddd;
+margin-top:8px;
+box-sizing:border-box;
+}
+button{
+background:#111827;
+color:white;
+border:none;
+font-weight:bold;
+cursor:pointer;
+}
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+}
+th,td{
+padding:10px;
+border-bottom:1px solid #eee;
+text-align:left;
+}
+.badge{
+padding:5px 10px;
+border-radius:999px;
+font-size:12px;
+background:#fee2e2;
+color:#dc2626;
+}
+.actions{
+display:flex;
+gap:5px;
+}
+.smallbtn{
+padding:8px;
+font-size:12px;
+}
+.modal{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.5);
+display:none;
+justify-content:center;
+align-items:center;
+}
+.modal-content{
+background:white;
+padding:20px;
+border-radius:14px;
+width:90%;
+max-width:400px;
+}
+</style>
+</head>
+<body>
+
+<header>
+<div class="logo">TICK<span>OFERTAS</span></div>
+<button onclick="exportar()">Exportar Backup</button>
+</header>
+
+<div class="container">
+
+<div class="grid">
+<div class="card">
+<h3>Ventas Totales</h3>
+<h2 id="ventasTotales">L 0</h2>
+</div>
+
+<div class="card">
+<h3>Gastos Totales</h3>
+<h2 id="gastosTotales">L 0</h2>
+</div>
+
+<div class="card">
+<h3>Ganancia Neta</h3>
+<h2 id="gananciaNeta">L 0</h2>
+</div>
+
+<div class="card">
+<h3>Cliente Top</h3>
+<h2 id="clienteTop">-</h2>
+</div>
+</div>
+
+<div class="card">
+<h3>➕ Nuevo Pedido</h3>
+
+<input id="cliente" placeholder="Cliente">
+<input id="tiktok" placeholder="@usuarioTikTok">
+<input id="telefono" placeholder="Teléfono">
+<input id="producto" placeholder="Producto">
+
+<input id="total" type="number" placeholder="Total pedido">
+<input id="abono" type="number" placeholder="Primer abono">
+
+<select id="cuenta">
+<option>FICOHSA</option>
+<option>OCCIDENTE</option>
+<option>ATLÁNTIDA</option>
+<option>BANPAIS</option>
+<option>BAC</option>
+<option>EFECTIVO</option>
+</select>
+
+<button onclick="guardarPedido()">Guardar Pedido</button>
+</div>
+
+<div class="card">
+<h3>💸 Gastos</h3>
+
+<input id="detalleGasto" placeholder="Descripción">
+<input id="montoGasto" type="number" placeholder="Monto">
+
+<select id="cuentaGasto">
+<option>FICOHSA</option>
+<option>OCCIDENTE</option>
+<option>ATLÁNTIDA</option>
+<option>BANPAIS</option>
+<option>BAC</option>
+<option>EFECTIVO</option>
+</select>
+
+<button onclick="guardarGasto()">Guardar Gasto</button>
+</div>
+
+<div class="card">
+<h3>🏦 Balance por Cuenta</h3>
+<div id="balances"></div>
+</div>
+
+<div class="card">
+<h3>📋 Pedidos</h3>
+
+<table>
+<thead>
+<tr>
+<th>Cliente</th>
+<th>Producto</th>
+<th>Total</th>
+<th>Abonado</th>
+<th>Saldo</th>
+<th>Estado</th>
+<th>Acciones</th>
+</tr>
+</thead>
+
+<tbody id="tablaPedidos"></tbody>
+</table>
+</div>
+
+</div>
+
+<div class="modal" id="modalAbono">
+<div class="modal-content">
+<h3>Agregar Abono</h3>
+
+<input id="nuevoAbono" type="number" placeholder="Monto">
+
+<select id="cuentaAbono">
+<option>FICOHSA</option>
+<option>OCCIDENTE</option>
+<option>ATLÁNTIDA</option>
+<option>BANPAIS</option>
+<option>BAC</option>
+<option>EFECTIVO</option>
+</select>
+
+<button onclick="guardarAbono()">Guardar Abono</button>
+<br><br>
+<button onclick="cerrarModal()">Cancelar</button>
+</div>
+</div>
+
+<script>
+
+let pedidos = JSON.parse(localStorage.getItem("tickofertas_pedidos") || "[]");
+let gastos = JSON.parse(localStorage.getItem("tickofertas_gastos") || "[]");
+
+let pedidoActual = null;
+
+function money(n){
+return "L " + Number(n).toLocaleString("es-HN",{minimumFractionDigits:2});
+}
+
+function guardarPedido(){
+
+const pedido = {
+id: Date.now(),
+cliente: document.getElementById("cliente").value,
+tiktok: document.getElementById("tiktok").value,
+telefono: document.getElementById("telefono").value,
+producto: document.getElementById("producto").value,
+total: parseFloat(document.getElementById("total").value || 0),
+abonos: [
+{
+monto: parseFloat(document.getElementById("abono").value || 0),
+cuenta: document.getElementById("cuenta").value,
+fecha: new Date().toISOString()
+}
+]
+};
+
+pedidos.push(pedido);
+
+localStorage.setItem("tickofertas_pedidos", JSON.stringify(pedidos));
+
+document.getElementById("cliente").value = "";
+document.getElementById("tiktok").value = "";
+document.getElementById("telefono").value = "";
+document.getElementById("producto").value = "";
+document.getElementById("total").value = "";
+document.getElementById("abono").value = "";
+
+actualizar();
+
+alert("Pedido guardado");
+}
+
+function guardarGasto(){
+
+const gasto = {
+detalle: document.getElementById("detalleGasto").value,
+monto: parseFloat(document.getElementById("montoGasto").value || 0),
+cuenta: document.getElementById("cuentaGasto").value
+};
+
+gastos.push(gasto);
+
+localStorage.setItem("tickofertas_gastos", JSON.stringify(gastos));
+
+document.getElementById("detalleGasto").value = "";
+document.getElementById("montoGasto").value = "";
+
+actualizar();
+
+alert("Gasto guardado");
+}
+
+function abrirAbono(id){
+pedidoActual = pedidos.find(p=>p.id===id);
+document.getElementById("modalAbono").style.display = "flex";
+}
+
+function cerrarModal(){
+document.getElementById("modalAbono").style.display = "none";
+}
+
+function guardarAbono(){
+
+const monto = parseFloat(document.getElementById("nuevoAbono").value || 0);
+
+pedidoActual.abonos.push({
+monto:monto,
+cuenta:document.getElementById("cuentaAbono").value,
+fecha:new Date().toISOString()
+});
+
+localStorage.setItem("tickofertas_pedidos", JSON.stringify(pedidos));
+
+document.getElementById("nuevoAbono").value = "";
+
+cerrarModal();
+
+actualizar();
+
+alert("Abono guardado");
+}
+
+function eliminarPedido(id){
+
+if(confirm("¿Eliminar pedido?")){
+
+pedidos = pedidos.filter(p=>p.id!==id);
+
+localStorage.setItem("tickofertas_pedidos", JSON.stringify(pedidos));
+
+actualizar();
+
+}
+}
+
+function actualizar(){
+
+let totalVentas = 0;
+let totalGastos = 0;
+
+let clientes = {};
+
+const tabla = document.getElementById("tablaPedidos");
+tabla.innerHTML = "";
+
+pedidos.forEach(p=>{
+
+const abonado = p.abonos.reduce((a,b)=>a+b.monto,0);
+
+const saldo = p.total - abonado;
+
+let estado = saldo <= 0 ? "PAGADO" : "PENDIENTE";
+
+totalVentas += abonado;
+
+if(!clientes[p.cliente]){
+clientes[p.cliente] = 0;
+}
+
+clientes[p.cliente] += abonado;
+
+tabla.innerHTML += `
+<tr>
+<td>
+<strong>${p.cliente}</strong><br>
+<small>${p.tiktok}</small>
+</td>
+<td>${p.producto}</td>
+<td>${money(p.total)}</td>
+<td>${money(abonado)}</td>
+<td>${money(saldo)}</td>
+<td><span class="badge">${estado}</span></td>
+<td>
+<div class="actions">
+<button class="smallbtn" onclick="abrirAbono(${p.id})">+ Abono</button>
+<button class="smallbtn" onclick="eliminarPedido(${p.id})">Eliminar</button>
+</div>
+</td>
+</tr>
+`;
+
+});
+
+gastos.forEach(g=>{
+totalGastos += g.monto;
+});
+
+document.getElementById("ventasTotales").innerHTML = money(totalVentas);
+document.getElementById("gastosTotales").innerHTML = money(totalGastos);
+document.getElementById("gananciaNeta").innerHTML = money(totalVentas-totalGastos);
+
+let max = 0;
+let top = "-";
+
+for(let c in clientes){
+
+if(clientes[c] > max){
+
+max = clientes[c];
+top = c;
+
+}
+
+}
+
+document.getElementById("clienteTop").innerHTML = top;
+
+renderBalances();
+
+}
+
+function renderBalances(){
+
+const cuentas = [
+"FICOHSA",
+"OCCIDENTE",
+"ATLÁNTIDA",
+"BANPAIS",
+"BAC",
+"EFECTIVO"
+];
+
+let html = "";
+
+cuentas.forEach(c=>{
+
+let ingresos = 0;
+
+pedidos.forEach(p=>{
+p.abonos.forEach(a=>{
+if(a.cuenta===c){
+ingresos += a.monto;
+}
+});
+});
+
+let egresos = gastos
+.filter(g=>g.cuenta===c)
+.reduce((a,b)=>a+b.monto,0);
+
+let total = ingresos - egresos;
+
+html += `
+<div style="padding:10px;border-bottom:1px solid #eee">
+<strong>${c}</strong>
+<div>${money(total)}</div>
+</div>
+`;
+
+});
+
+document.getElementById("balances").innerHTML = html;
+
+}
+
+function exportar(){
+
+const data = {
+pedidos,
+gastos
+};
+
+const blob = new Blob(
+[JSON.stringify(data,null,2)],
+{type:"application/json"}
+);
+
+const a = document.createElement("a");
+
+a.href = URL.createObjectURL(blob);
+a.download = "tickofertas_backup.json";
+a.click();
+
+}
+
+actualizar();
+
+</script>
+
+</body>
+</html>

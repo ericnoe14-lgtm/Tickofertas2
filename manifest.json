@@ -1,0 +1,9 @@
+
+{
+"name":"TICKOFERTAS PRO",
+"short_name":"TICKOFERTAS",
+"display":"standalone",
+"background_color":"#111827",
+"theme_color":"#111827",
+"start_url":"./index.html"
+}
